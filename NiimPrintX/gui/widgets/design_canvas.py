@@ -115,6 +115,10 @@ class LabelScene(QGraphicsScene):
         if label_box is None:
             return QImage()
         
+        selected_items = self.selectedItems()
+        for item in selected_items:
+            item.setSelected(False)
+        
         scene_rect = label_box.sceneBoundingRect()
         width = int(scene_rect.width())
         height = int(scene_rect.height())
@@ -130,6 +134,9 @@ class LabelScene(QGraphicsScene):
         
         self.render(painter, target_rect, scene_rect)
         painter.end()
+        
+        for item in selected_items:
+            item.setSelected(True)
         
         return image
 

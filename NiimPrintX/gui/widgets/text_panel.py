@@ -36,10 +36,6 @@ class TextPanel(QWidget):
         self.content_edit.textChanged.connect(self._on_content_changed)
         group_layout.addRow("Content:", self.content_edit)
         
-        self.sample_label = QLabel("Sample Text")
-        self.sample_label.setStyleSheet("font-size: 14px;")
-        group_layout.addRow("", self.sample_label)
-        
         self.font_combo = QComboBox()
         self.font_combo.addItems(self._fonts)
         if "Arial" in self._fonts:
@@ -94,8 +90,6 @@ class TextPanel(QWidget):
         
         layout.addWidget(group)
         layout.addStretch()
-        
-        self._update_sample()
     
     def _get_current_text_item(self) -> TextItem:
         return TextItem(
@@ -108,34 +102,17 @@ class TextPanel(QWidget):
             kerning=self.kerning_spin.value()
         )
     
-    def _update_sample(self):
-        content = self.content_edit.text()
-        font_family = self.font_combo.currentText()
-        weight = "bold" if self.bold_check.isChecked() else "normal"
-        style = "italic" if self.italic_check.isChecked() else "normal"
-        
-        self.sample_label.setText(f"{content} in {font_family}")
-        self.sample_label.setStyleSheet(
-            f"font-family: '{font_family}'; "
-            f"font-size: 14px; "
-            f"font-weight: {weight}; "
-            f"font-style: {style};"
-        )
-    
     def _on_content_changed(self, _):
-        self._update_sample()
         if self._current_item and not self._is_updating:
             self._current_item.content = self.content_edit.text()
             self.text_updated.emit(self._current_item)
     
     def _on_font_changed(self, _):
-        self._update_sample()
         if self._current_item and not self._is_updating:
             self._current_item.font_family = self.font_combo.currentText()
             self.text_updated.emit(self._current_item)
     
     def _on_style_changed(self, _):
-        self._update_sample()
         if self._current_item and not self._is_updating:
             self._current_item.font_weight = "bold" if self.bold_check.isChecked() else "normal"
             self._current_item.font_slant = "italic" if self.italic_check.isChecked() else "roman"
@@ -185,7 +162,6 @@ class TextPanel(QWidget):
         self.kerning_spin.setValue(self._current_item.kerning)
         
         self.add_button.setText("Update")
-        self._update_sample()
         self._is_updating = False
     
     def clear_selection(self):
