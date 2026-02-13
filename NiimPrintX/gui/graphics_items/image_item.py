@@ -47,26 +47,34 @@ class ImageGraphicsItem(QGraphicsObject):
     
     def _load_from_path(self, path: str):
         if os.path.exists(path):
-            self._pixmap = QPixmap(path)
-            self._original_pixmap = QPixmap(path)
-            if not self._pixmap.isNull():
+            color_pixmap = QPixmap(path)
+            if not color_pixmap.isNull():
+                self._original_pixmap = color_pixmap
+                self._pixmap = self._to_grayscale(color_pixmap)
                 self._bounding_rect = QRectF(0, 0, self._pixmap.width(), self._pixmap.height())
     
     def _load_from_data(self, data: bytes):
         image = QImage()
         if image.loadFromData(data):
-            self._pixmap = QPixmap.fromImage(image)
-            self._original_pixmap = QPixmap.fromImage(image)
+            color_pixmap = QPixmap.fromImage(image)
+            self._original_pixmap = color_pixmap
+            self._pixmap = self._to_grayscale(color_pixmap)
             self._bounding_rect = QRectF(0, 0, self._pixmap.width(), self._pixmap.height())
+    
+    def _to_grayscale(self, pixmap: QPixmap) -> QPixmap:
+        image = pixmap.toImage()
+        grayscale = image.convertToFormat(QImage.Format.Format_Grayscale8)
+        return QPixmap.fromImage(grayscale.convertToFormat(QImage.Format.Format_ARGB32))
     
     def _apply_scale(self):
         if self._original_pixmap and not self._original_pixmap.isNull():
             scaled_size = self._original_pixmap.size() * self._scale
-            self._pixmap = self._original_pixmap.scaled(
+            color_scaled = self._original_pixmap.scaled(
                 scaled_size,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
+            self._pixmap = self._to_grayscale(color_scaled)
             self._bounding_rect = QRectF(0, 0, self._pixmap.width(), self._pixmap.height())
     
     def _get_handle_rect(self, corner: str) -> QRectF:

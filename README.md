@@ -1,5 +1,9 @@
 Fork of NiimPrintX with fixed issue of priting in wrong orientation, also I wanted to test GLM-5 so I started with it a rewrite from fkin tkinter to glorious pyqt6.
 
+Added features:
+- fixing issues lol
+- 
+
 Tested by myself only on D110 and on nixos (using shell.nix env). Old poetry/requirements.txt will probably not work.
 
 ## How to run?

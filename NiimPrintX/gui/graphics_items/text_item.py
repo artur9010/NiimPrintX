@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any
 from PyQt6.QtWidgets import QGraphicsObject
 from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QPointF
-from PyQt6.QtGui import QPen, QBrush, QColor, QPixmap, QFont, QFontMetrics, QCursor
+from PyQt6.QtGui import QPen, QBrush, QColor, QPixmap, QImage, QFont, QFontMetrics, QCursor
 
 from ..models import AppConfig, TextItem
 from ..utils import ImageRenderer
@@ -34,18 +34,26 @@ class TextGraphicsItem(QGraphicsObject):
     
     def _render_pixmap(self):
         renderer = ImageRenderer()
-        self._pixmap = renderer.render_text(self._text_item)
-        self._original_pixmap = self._pixmap
+        color_pixmap = renderer.render_text(self._text_item)
         
-        if self._pixmap:
+        if color_pixmap:
+            self._original_pixmap = color_pixmap
+            self._pixmap = self._to_grayscale(color_pixmap)
             self._bounding_rect = QRectF(0, 0, self._pixmap.width(), self._pixmap.height())
         else:
+            self._pixmap = None
+            self._original_pixmap = None
             fm = QFontMetrics(QFont(self._text_item.font_family, self._text_item.font_size))
             width = fm.horizontalAdvance(self._text_item.content) + 10
             height = fm.height() + 10
             self._bounding_rect = QRectF(0, 0, width, height)
         
         self.update()
+    
+    def _to_grayscale(self, pixmap: QPixmap) -> QPixmap:
+        image = pixmap.toImage()
+        grayscale = image.convertToFormat(QImage.Format.Format_Grayscale8)
+        return QPixmap.fromImage(grayscale.convertToFormat(QImage.Format.Format_ARGB32))
     
     def _get_handle_rect(self, corner: str) -> QRectF:
         hs = self.HANDLE_SIZE
@@ -147,11 +155,12 @@ class TextGraphicsItem(QGraphicsObject):
             if new_scale != self._scale:
                 self._scale = new_scale
                 scaled_size = self._original_pixmap.size() * new_scale
-                self._pixmap = self._original_pixmap.scaled(
+                color_scaled = self._original_pixmap.scaled(
                     scaled_size,
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation
                 )
+                self._pixmap = self._to_grayscale(color_scaled)
                 self._bounding_rect = QRectF(0, 0, self._pixmap.width(), self._pixmap.height())
                 self.update()
                 self.item_changed.emit()
@@ -196,10 +205,11 @@ class TextGraphicsItem(QGraphicsObject):
         item._scale = data.get('data', {}).get('scale', 1.0)
         if item._scale != 1.0 and item._original_pixmap:
             scaled_size = item._original_pixmap.size() * item._scale
-            item._pixmap = item._original_pixmap.scaled(
+            color_scaled = item._original_pixmap.scaled(
                 scaled_size,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
+            item._pixmap = item._to_grayscale(color_scaled)
             item._bounding_rect = QRectF(0, 0, item._pixmap.width(), item._pixmap.height())
         return item
