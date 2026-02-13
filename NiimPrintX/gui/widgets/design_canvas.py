@@ -58,26 +58,13 @@ class LabelScene(QGraphicsScene):
         )
         self.label_box = self.addRect(
             label_rect,
-            QPen(QColor(0, 0, 255), 1),
+            QPen(Qt.PenStyle.NoPen),
             QBrush(QColor(255, 255, 255))
         )
         self.label_box.setZValue(-100)
         self.label_box.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable, False)
         
-        print_rect = QRectF(
-            center_x - self._print_width / 2,
-            center_y - self._print_height / 2,
-            self._print_width,
-            self._print_height
-        )
-        dash_pen = QPen(QColor(255, 0, 0), 1, Qt.PenStyle.DashLine)
-        self.print_area_box = self.addRect(
-            print_rect,
-            dash_pen,
-            QBrush(QColor(255, 255, 255))
-        )
-        self.print_area_box.setZValue(-99)
-        self.print_area_box.setFlag(QGraphicsRectItem.GraphicsItemFlag.ItemIsSelectable, False)
+        self.print_area_box = None
     
     def update_label_size(self):
         self._create_label_boxes()
