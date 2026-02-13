@@ -60,6 +60,15 @@ class AppConfig(QObject):
                     "120mm x 14mm": (120, 14),
                 },
                 "density": 3
+            },
+            "b1": {
+                "size": {
+                    "40mm x 30mm": (40, 30),
+                    "50mm x 15mm": (50, 15),
+                    "50mm x 30mm": (50, 30),
+                    "60mm x 40mm": (60, 40),
+                },
+                "density": 3
             }
         }
         

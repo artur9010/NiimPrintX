@@ -160,7 +160,7 @@ class BluetoothWorker(QObject):
         BluetoothWorker._rfid_info = None
         BluetoothWorker._cloud_label_info = None
     
-    def print_image(self, pil_image, density: int, quantity: int):
+    def print_image(self, pil_image, density: int, quantity: int, device: str = ""):
         def on_success(_):
             self.print_finished.emit(True)
         
@@ -168,22 +168,29 @@ class BluetoothWorker(QObject):
             self.print_error.emit(f"Print failed: {msg}")
         
         self._run_async(
-            self._print_images(pil_image, density, quantity),
+            self._print_images(pil_image, density, quantity, device),
             on_success=on_success,
             on_error=on_error
         )
     
-    async def _print_images(self, pil_image, density: int, quantity: int):
+    async def _print_images(self, pil_image, density: int, quantity: int, device: str = ""):
         from loguru import logger
         
         if BluetoothWorker._printer_client is None:
             raise RuntimeError("Printer not connected")
         
         logger.info(f"Print image dimensions: width={pil_image.width}, height={pil_image.height}")
+        logger.info(f"Device: {device}")
         
-        for i in range(quantity):
-            await BluetoothWorker._printer_client.print_image(pil_image, density=density)
-            self.print_progress.emit(i + 1)
+        # Use V2 print method for B1 printer
+        if device and device.lower() == 'b1':
+            logger.info("Using print_imageV2 for B1")
+            await BluetoothWorker._printer_client.print_imageV2(pil_image, density=density, quantity=quantity)
+            self.print_progress.emit(quantity)
+        else:
+            for i in range(quantity):
+                await BluetoothWorker._printer_client.print_image(pil_image, density=density)
+                self.print_progress.emit(i + 1)
     
     def get_printer_client(self):
         return BluetoothWorker._printer_client

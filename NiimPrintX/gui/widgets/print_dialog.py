@@ -110,7 +110,8 @@ class PrintDialog(QDialog):
         self._bt_worker.print_finished.connect(self._on_finished)
         self._bt_worker.print_error.connect(self._on_error)
         
-        self._bt_worker.print_image(pil_image, density, quantity)
+        device = self.app_config.device or ""
+        self._bt_worker.print_image(pil_image, density, quantity, device)
     
     def _on_progress(self, value: int):
         self.progress_bar.setValue(value)
@@ -142,7 +143,11 @@ class PrintDialog(QDialog):
         pil_image = Image.open(io.BytesIO(bytes(buffer.data())))
         logger.info(f"PIL before rotation: {pil_image.width}x{pil_image.height}")
         
-        pil_image = pil_image.rotate(-90, Image.NEAREST, expand=True)
-        logger.info(f"PIL after rotation: {pil_image.width}x{pil_image.height}")
+        # B1 printer doesn't need rotation, D110/D11 need -90 degrees
+        if self.app_config.device and self.app_config.device.lower() == 'b1':
+            logger.info("B1 printer - no rotation needed")
+        else:
+            pil_image = pil_image.rotate(-90, Image.NEAREST, expand=True)
+            logger.info(f"PIL after rotation: {pil_image.width}x{pil_image.height}")
         
         return pil_image.convert("RGBA")

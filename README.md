@@ -9,6 +9,7 @@ Tested by myself on D110 and on nixos (using shell.nix env). Old poetry/requirem
 - Whole UI was rewritten from tkinter to pyqt6
 - It prints labels in correct orientation (on D110 atleast.)
 - Has paper type autodetection feature just like mobile app. If printer contains niimbot approved authorized 100% authentic paper it will select correct label size automatically. But there is one caveat: it is required to connect to cloud service from niimbot and tell them the serial from rfid tag. Fuck you Niimbot. I will dump those later. 
+- Added support for B1 printer (based on https://github.com/flathub/io.github.labbots.NiimPrintX/blob/master/add-b1-support.patch). I haven't tested it, so if you have a B1 you can tell me if it works.
 
 ## How to run?
 

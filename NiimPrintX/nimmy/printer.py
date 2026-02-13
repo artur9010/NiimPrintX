@@ -200,6 +200,24 @@ class PrinterClient:
 
         await self.end_print()
 
+    async def print_imageV2(self, image: Image, density: int = 3, quantity: int = 1):
+        """Print image using V2 protocol for B1 printer."""
+        await self.set_label_density(density)
+        await self.set_label_type(1)
+        await self.start_printV2(quantity)
+        await self.start_page_print()
+        await self.set_dimensionV2(image.height, image.width, quantity)
+
+        for pkt in self._encode_image(image, 0, 0):
+            # Send each line and wait for a response or status check
+            await self.write_raw(pkt)
+            # Adding a short delay or status check here can help manage buffer issues
+            await asyncio.sleep(0.01)
+
+        await self.end_page_print()
+        
+        await asyncio.sleep(2)  # Sleep for some time, looks like it enhances the reliability of the print job
+
     def _encode_image(self, image: Image, vertical_offset=0, horizontal_offset=0):
         # Convert the image to monochrome
         img = ImageOps.invert(image.convert("L")).convert("1")
@@ -314,6 +332,13 @@ class PrinterClient:
     async def start_print(self):
         packet = await self.send_command(RequestCodeEnum.START_PRINT, b"\x01")
         return bool(packet.data[0])
+    
+    async def start_printV2(self, quantity: int = 1):
+        """Start print for B1 printer with V2 protocol."""
+        assert 0 <= quantity <= 65535
+        command = struct.pack('>H', quantity)
+        packet = await self.send_command(RequestCodeEnum.START_PRINT, b'\x00' + command + b'\x00\x00\x00\x00')
+        return bool(packet.data[0])
 
     async def end_print(self):
         packet = await self.send_command(RequestCodeEnum.END_PRINT, b"\x01")
@@ -334,6 +359,14 @@ class PrinterClient:
     async def set_dimension(self, w, h):
         packet = await self.send_command(
             RequestCodeEnum.SET_DIMENSION, struct.pack(">HH", w, h)
+        )
+        return bool(packet.data[0])
+    
+    async def set_dimensionV2(self, w, h, copies):
+        """Set dimension for B1 printer with V2 protocol."""
+        logger.debug(f"Setting dimension V2: {w}x{h}, copies={copies}")
+        packet = await self.send_command(
+            RequestCodeEnum.SET_DIMENSION, struct.pack(">HHH", w, h, copies)
         )
         return bool(packet.data[0])
 
