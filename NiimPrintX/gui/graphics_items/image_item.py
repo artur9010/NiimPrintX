@@ -63,8 +63,16 @@ class ImageGraphicsItem(QGraphicsObject):
     
     def _to_grayscale(self, pixmap: QPixmap) -> QPixmap:
         image = pixmap.toImage()
-        grayscale = image.convertToFormat(QImage.Format.Format_Grayscale8)
-        return QPixmap.fromImage(grayscale.convertToFormat(QImage.Format.Format_ARGB32))
+        result = QImage(image.width(), image.height(), QImage.Format.Format_ARGB32)
+        
+        for y in range(image.height()):
+            for x in range(image.width()):
+                color = image.pixelColor(x, y)
+                gray = int(0.299 * color.red() + 0.587 * color.green() + 0.114 * color.blue())
+                gray_color = QColor(gray, gray, gray, color.alpha())
+                result.setPixelColor(x, y, gray_color)
+        
+        return QPixmap.fromImage(result)
     
     def _apply_scale(self):
         if self._original_pixmap and not self._original_pixmap.isNull():
