@@ -8,6 +8,7 @@ from PyQt6.QtCore import Qt, QTimer
 from .models import AppConfig, PrinterState
 from .widgets import DesignCanvas, TextPanel, IconPanel, StatusBar, DeviceSelector
 from .widgets import PrintDialog
+from .workers import BluetoothWorker
 
 
 class MainWindow(QMainWindow):
@@ -217,6 +218,9 @@ class MainWindow(QMainWindow):
         )
         
         if reply == QMessageBox.StandardButton.Yes:
+            bt_worker = self.device_selector.get_bt_worker()
+            if bt_worker and BluetoothWorker.is_connected():
+                bt_worker.disconnect()
             event.accept()
         else:
             event.ignore()
