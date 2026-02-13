@@ -103,11 +103,11 @@ class LabelScene(QGraphicsScene):
             item_type = item_data.get('item_type')
             if item_type == 'text':
                 item = TextGraphicsItem.from_dict(item_data, self.app_config)
-                item.setPos(center.x() + item_data.get('x', 0), center.y() + item_data.get('y', 0))
+                item.setPos(item_data.get('x', 0), item_data.get('y', 0))
                 self.addItem(item)
             elif item_type == 'image':
                 item = ImageGraphicsItem.from_dict(item_data, self.app_config)
-                item.setPos(center.x() + item_data.get('x', 0), center.y() + item_data.get('y', 0))
+                item.setPos(item_data.get('x', 0), item_data.get('y', 0))
                 self.addItem(item)
     
     def render_to_image(self) -> QImage:
