@@ -6,6 +6,7 @@ Tested by myself on D110 and on nixos (using shell.nix env). Old poetry/requirem
 
 - Whole UI was rewritten from tkinter to pyqt6
 - It prints labels in correct orientation (on D110 atleast.)
+- Has paper type autodetection feature just like mobile app. If printer contains niimbot approved authorized 100% authentic paper it will select correct label size automatically. But there is one caveat: it is required to connect to cloud service from niimbot and tell them the serial from rfid tag. Fuck you Niimbot. I will dump those later. 
 
 ## How to run?
 
@@ -13,6 +14,10 @@ Tested by myself on D110 and on nixos (using shell.nix env). Old poetry/requirem
 nix-shell
 python3 -u -m NiimPrintX.gui -v
 ```
+
+## Plans
+
+Probably none, i were just being annoyed with old tkinter app. Maybe a mobile UI for postmarketos users or atleast flatpak release for less-autistic of us.
 
 # Old description
 

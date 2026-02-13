@@ -3,6 +3,7 @@ from typing import List, Dict
 from PyQt6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QScrollArea, QLabel, QTabWidget
 from PyQt6.QtCore import pyqtSignal, Qt, QSize, QThread, QUrl
 from PyQt6.QtGui import QPixmap, QCursor
+from loguru import logger
 
 
 class IconLoaderThread(QThread):
@@ -14,10 +15,42 @@ class IconLoaderThread(QThread):
     
     def run(self):
         icons = []
-        if os.path.isdir(self.folder_path):
-            for file in os.listdir(self.folder_path):
+        logger.info(f"IconLoader: Scanning folder {self.folder_path}")
+        
+        if not os.path.isdir(self.folder_path):
+            logger.warning(f"IconLoader: Folder does not exist: {self.folder_path}")
+            self.icons_loaded.emit(icons)
+            return
+        
+        subdirs = []
+        files = []
+        
+        for item in os.listdir(self.folder_path):
+            item_path = os.path.join(self.folder_path, item)
+            if os.path.isdir(item_path):
+                subdirs.append(item)
+            elif os.path.isfile(item_path):
+                files.append(item)
+        
+        logger.info(f"IconLoader: Found {len(subdirs)} subdirs and {len(files)} files in {self.folder_path}")
+        
+        if files:
+            for file in files:
                 if file.lower().endswith(('.png', '.jpg', '.jpeg', '.svg', '.gif')):
                     icons.append(os.path.join(self.folder_path, file))
+            logger.info(f"IconLoader: Found {len(icons)} icons directly in {self.folder_path}")
+        else:
+            size_folder = os.path.join(self.folder_path, "50x50")
+            if os.path.isdir(size_folder):
+                logger.info(f"IconLoader: Looking in size folder {size_folder}")
+                for file in os.listdir(size_folder):
+                    if file.lower().endswith(('.png', '.jpg', '.jpeg', '.svg', '.gif')):
+                        icons.append(os.path.join(size_folder, file))
+                logger.info(f"IconLoader: Found {len(icons)} icons in {size_folder}")
+            else:
+                logger.warning(f"IconLoader: No 50x50 folder found in {self.folder_path}")
+        
+        logger.info(f"IconLoader: Returning {len(icons)} icons from {self.folder_path}")
         self.icons_loaded.emit(icons)
 
 
@@ -118,6 +151,7 @@ class TabbedIconGrid(QWidget):
         self.icon_folder = icon_folder
         self._loaded_tabs: Dict[str, bool] = {}
         
+        logger.info(f"TabbedIconGrid: Initializing with folder {icon_folder}")
         self._setup_ui()
         self._load_tabs()
     
@@ -131,14 +165,19 @@ class TabbedIconGrid(QWidget):
     
     def _load_tabs(self):
         if not os.path.isdir(self.icon_folder):
+            logger.warning(f"TabbedIconGrid: Icon folder not found: {self.icon_folder}")
             self.tab_widget.addTab(QLabel("No icons folder found"), "Empty")
             return
+        
+        logger.info(f"TabbedIconGrid: Loading tabs from {self.icon_folder}")
         
         subdirs = []
         for item in os.listdir(self.icon_folder):
             item_path = os.path.join(self.icon_folder, item)
             if os.path.isdir(item_path):
                 subdirs.append(item)
+        
+        logger.info(f"TabbedIconGrid: Found {len(subdirs)} subdirs: {subdirs}")
         
         if not subdirs:
             grid = IconGrid(self.icon_folder)
@@ -150,19 +189,24 @@ class TabbedIconGrid(QWidget):
                 placeholder = QLabel("Loading...")
                 placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
                 self.tab_widget.addTab(placeholder, subdir)
+                logger.info(f"TabbedIconGrid: Added tab '{subdir}'")
     
     def _on_tab_changed(self, index: int):
         tab_name = self.tab_widget.tabText(index)
+        logger.info(f"TabbedIconGrid: Tab changed to '{tab_name}' (index {index})")
         
         if tab_name in self._loaded_tabs:
+            logger.info(f"TabbedIconGrid: Tab '{tab_name}' already loaded")
             return
         
         current_widget = self.tab_widget.widget(index)
         if isinstance(current_widget, QLabel):
             folder_path = os.path.join(self.icon_folder, tab_name)
+            logger.info(f"TabbedIconGrid: Loading icons from {folder_path}")
             grid = IconGrid(folder_path)
             grid.icon_selected.connect(self.icon_selected.emit)
             self.tab_widget.removeTab(index)
             self.tab_widget.insertTab(index, grid, tab_name)
             self.tab_widget.setCurrentIndex(index)
             self._loaded_tabs[tab_name] = True
+            logger.info(f"TabbedIconGrid: Loaded tab '{tab_name}'")
