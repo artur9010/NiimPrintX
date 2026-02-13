@@ -9,13 +9,6 @@ from ..models import AppConfig, PrinterState
 from ..workers import BluetoothWorker
 
 
-LABEL_TYPE_MAP = {
-    "Y4513120A": "40mm x 12mm",
-    "Y4513000A": "50mm x 14mm",
-    "Y4513120C": "30mm x 15mm",
-}
-
-
 class DeviceSelector(QWidget):
     print_requested = pyqtSignal()
     
@@ -128,6 +121,7 @@ class DeviceSelector(QWidget):
         self._bt_worker.disconnected.connect(self._on_disconnected)
         self._bt_worker.error.connect(self._on_error)
         self._bt_worker.rfid_detected.connect(self._on_rfid_detected)
+        self._bt_worker.cloud_label_detected.connect(self._on_cloud_label_detected)
         
         self._bt_worker.connect_by_model(model)
     
@@ -144,23 +138,48 @@ class DeviceSelector(QWidget):
     def _on_rfid_detected(self, rfid_info):
         from loguru import logger
         logger.info(f"RFID info received: {rfid_info}")
+    
+    def _on_cloud_label_detected(self, label_info):
+        from loguru import logger
+        logger.info(f"Cloud label detected: {label_info.width_mm}x{label_info.height_mm}mm - {label_info.name_en}")
         
-        barcode = rfid_info.get("barcode", "")
-        total_len = rfid_info.get("total_len", 0)
+        label_size = f"{label_info.width_mm}mm x {label_info.height_mm}mm"
         
-        if barcode in LABEL_TYPE_MAP:
-            label_size = LABEL_TYPE_MAP[barcode]
-            logger.info(f"Detected label size from barcode: {label_size}")
-            
-            index = self.label_size_combo.findText(label_size)
+        index = self.label_size_combo.findText(label_size)
+        if index >= 0:
+            self.label_size_combo.setCurrentIndex(index)
+            self.printer_state.set_status(f"Detected: {label_info.name_en}")
+        else:
+            logger.info(f"Label size {label_size} not in dropdown, checking alternatives...")
+            self._find_closest_label_size(label_info.width_mm, label_info.height_mm, label_info.name_en)
+    
+    def _find_closest_label_size(self, width_mm: int, height_mm: int, label_name: str):
+        from loguru import logger
+        
+        device = self.app_config.device
+        if not device:
+            return
+        
+        sizes = self.app_config.label_sizes.get(device, {}).get('size', {})
+        
+        best_match = None
+        best_diff = float('inf')
+        
+        for size_name, (size_w, size_h) in sizes.items():
+            diff = abs(size_w - width_mm) + abs(size_h - height_mm)
+            if diff < best_diff:
+                best_diff = diff
+                best_match = size_name
+        
+        if best_match and best_diff <= 2:
+            index = self.label_size_combo.findText(best_match)
             if index >= 0:
                 self.label_size_combo.setCurrentIndex(index)
-                self.printer_state.set_status(f"Detected: {label_size}")
-            else:
-                logger.warning(f"Label size {label_size} not in dropdown")
+                self.printer_state.set_status(f"Detected: {label_name} (~{best_match})")
+                logger.info(f"Matched to closest size: {best_match}")
         else:
-            logger.info(f"Unknown barcode: {barcode}, total_len: {total_len}mm")
-            self.printer_state.set_status(f"Connected (unknown label type)")
+            self.printer_state.set_status(f"Detected: {label_name}")
+            logger.warning(f"No close match found for {width_mm}x{height_mm}mm")
     
     def _disconnect(self):
         self.connect_btn.setText("Disconnecting...")

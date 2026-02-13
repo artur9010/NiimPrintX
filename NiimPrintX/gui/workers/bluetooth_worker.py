@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Any
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 from ..models.printer_state import DiscoveredDevice
+from ..services import NiimbotCloudService, CloudLabelInfo
 
 
 class BluetoothWorker(QObject):
@@ -12,6 +13,7 @@ class BluetoothWorker(QObject):
     disconnected = pyqtSignal()
     error = pyqtSignal(str)
     rfid_detected = pyqtSignal(dict)
+    cloud_label_detected = pyqtSignal(object)
     print_progress = pyqtSignal(int)
     print_finished = pyqtSignal(bool)
     print_error = pyqtSignal(str)
@@ -21,10 +23,13 @@ class BluetoothWorker(QObject):
     _printer_client = None
     _connected_device: Optional[DiscoveredDevice] = None
     _rfid_info: Optional[Dict[str, Any]] = None
+    _cloud_label_info: Optional[CloudLabelInfo] = None
+    _cloud_service: Optional[NiimbotCloudService] = None
     
     def __init__(self):
         super().__init__()
         self._ensure_loop_running()
+        self._cloud_service = NiimbotCloudService()
     
     def _ensure_loop_running(self):
         if BluetoothWorker._shared_loop is None or not BluetoothWorker._shared_loop.is_running():
@@ -91,6 +96,10 @@ class BluetoothWorker(QObject):
                 logger.info(f"RFID detected: {rfid_info}")
                 BluetoothWorker._rfid_info = rfid_info
                 self.rfid_detected.emit(rfid_info)
+                
+                barcode = rfid_info.get('barcode', '')
+                if barcode:
+                    self._query_cloud_label(barcode)
         
         def on_error(msg):
             from loguru import logger
@@ -107,6 +116,25 @@ class BluetoothWorker(QObject):
         if BluetoothWorker._printer_client:
             return await BluetoothWorker._printer_client.get_rfid()
         return None
+    
+    def _query_cloud_label(self, barcode: str):
+        def on_success(label_info):
+            if label_info:
+                from loguru import logger
+                logger.info(f"Cloud label: {label_info.width_mm}x{label_info.height_mm}mm - {label_info.name_en}")
+                BluetoothWorker._cloud_label_info = label_info
+                self.cloud_label_detected.emit(label_info)
+        
+        def on_error(msg):
+            from loguru import logger
+            logger.warning(f"Failed to query cloud label: {msg}")
+        
+        if self._cloud_service:
+            self._run_async(
+                self._cloud_service.get_label_by_barcode(barcode),
+                on_success=on_success,
+                on_error=on_error
+            )
     
     def disconnect(self):
         def on_success(_):
@@ -130,6 +158,7 @@ class BluetoothWorker(QObject):
         BluetoothWorker._printer_client = None
         BluetoothWorker._connected_device = None
         BluetoothWorker._rfid_info = None
+        BluetoothWorker._cloud_label_info = None
     
     def print_image(self, pil_image, density: int, quantity: int):
         def on_success(_):
@@ -164,6 +193,9 @@ class BluetoothWorker(QObject):
     
     def get_rfid_info(self):
         return BluetoothWorker._rfid_info
+    
+    def get_cloud_label_info(self):
+        return BluetoothWorker._cloud_label_info
     
     @classmethod
     def is_connected(cls):

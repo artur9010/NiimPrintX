@@ -1,3 +1,7 @@
+Fork of NiimPrintX with fixed issue of priting in wrong orientation, also I wanted to test GLM-5 so I started with it a rewrite from fkin tkinter to glorious pyqt6.
+
+Tested by myself only on D110 and on nixos (using shell.nix env). Old poetry/requirements.txt will probably not work.
+
 <h1 align="center">NiimPrintX</h1>
 <p align="center">
 <a href="https://github.com/labbots/NiimPrintX/releases"><img src="https://img.shields.io/github/release/labbots/NiimPrintX.svg?style=for-the-badge" alt="Latest Release"></a>

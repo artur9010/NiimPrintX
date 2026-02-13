@@ -13,6 +13,7 @@ pkgs.mkShell {
       # Python dependencies available in Nixpkgs
       altgraph
       appdirs
+      aiohttp
       asttokens
       bleak
       click
