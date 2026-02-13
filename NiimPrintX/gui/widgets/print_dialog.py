@@ -20,7 +20,7 @@ class PrintDialog(QDialog):
         self._bt_worker = bt_worker
         
         self.setWindowTitle("Print Label")
-        self.setMinimumSize(400, 500)
+        self.setMinimumSize(360, 400)
         self.setModal(True)
         
         self._setup_ui()
@@ -28,31 +28,9 @@ class PrintDialog(QDialog):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         
-        preview_group = QGroupBox("Preview (Actual Size)")
-        preview_layout = QVBoxLayout(preview_group)
-        
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(False)
-        scroll_area.setStyleSheet("background-color: white; border: 1px solid #ccc;")
-        
         self.preview_label = QLabel()
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        scroll_area.setWidget(self.preview_label)
-        
-        width_mm, height_mm = self.app_config.get_label_size_mm()
-        label_width = self.app_config.mm_to_pixels(width_mm)
-        label_height = self.app_config.mm_to_pixels(height_mm)
-        
-        max_preview_width = 400
-        max_preview_height = 300
-        scroll_area.setMinimumSize(
-            min(label_width + 20, max_preview_width),
-            min(label_height + 20, max_preview_height)
-        )
-        
-        preview_layout.addWidget(scroll_area)
-        
-        layout.addWidget(preview_group)
+        layout.addWidget(self.preview_label)
         
         self._update_preview()
         
