@@ -1,9 +1,60 @@
 import os
-from typing import List, Dict
-from PyQt6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QScrollArea, QLabel, QTabWidget
+from typing import List, Dict, Optional
+from PyQt6.QtWidgets import QWidget, QGridLayout, QVBoxLayout, QScrollArea, QLabel, QTabWidget, QApplication
 from PyQt6.QtCore import pyqtSignal, Qt, QSize, QThread, QUrl
-from PyQt6.QtGui import QPixmap, QCursor
+from PyQt6.QtGui import QPixmap, QCursor, QImage, QColor, QPainter
 from loguru import logger
+
+
+_is_dark_theme_cache: Optional[bool] = None
+
+
+def is_dark_theme() -> bool:
+    global _is_dark_theme_cache
+    
+    if _is_dark_theme_cache is not None:
+        return _is_dark_theme_cache
+    
+    app = QApplication.instance()
+    if app is None:
+        _is_dark_theme_cache = False
+        return False
+    
+    palette = app.palette()
+    bg_color = palette.color(palette.ColorRole.Window)
+    
+    bg_luminance = (0.299 * bg_color.red() + 0.587 * bg_color.green() + 0.114 * bg_color.blue())
+    
+    _is_dark_theme_cache = bg_luminance < 128
+    logger.info(f"Theme detection: bg_luminance={bg_luminance:.3f}, is_dark={_is_dark_theme_cache}")
+    return _is_dark_theme_cache
+
+
+def reset_theme_cache():
+    global _is_dark_theme_cache
+    _is_dark_theme_cache = None
+    logger.info("Theme cache reset")
+
+
+def invert_pixmap(pixmap: QPixmap) -> QPixmap:
+    image = pixmap.toImage()
+    result = QImage(image.width(), image.height(), QImage.Format.Format_ARGB32)
+    
+    for y in range(image.height()):
+        for x in range(image.width()):
+            color = image.pixelColor(x, y)
+            if color.alpha() > 0:
+                inverted = QColor(
+                    255 - color.red(),
+                    255 - color.green(),
+                    255 - color.blue(),
+                    color.alpha()
+                )
+                result.setPixelColor(x, y, inverted)
+            else:
+                result.setPixelColor(x, y, color)
+    
+    return QPixmap.fromImage(result)
 
 
 class IconLoaderThread(QThread):
@@ -57,9 +108,11 @@ class IconLoaderThread(QThread):
 class IconGridWidget(QLabel):
     clicked = pyqtSignal(str)
     
-    def __init__(self, icon_path: str, size: int = 64, parent=None):
+    def __init__(self, icon_path: str, size: int = 64, invert_for_dark: bool = False, parent=None):
         super().__init__(parent)
         self.icon_path = icon_path
+        self._invert_for_dark = invert_for_dark
+        self._original_pixmap: Optional[QPixmap] = None
         self.setFixedSize(size, size)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self._load_icon()
@@ -67,11 +120,30 @@ class IconGridWidget(QLabel):
     def _load_icon(self):
         pixmap = QPixmap(self.icon_path)
         if not pixmap.isNull():
-            self.setPixmap(pixmap.scaled(
+            self._original_pixmap = pixmap
+            display_pixmap = pixmap.scaled(
                 self.size(),
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
-            ))
+            )
+            
+            if self._invert_for_dark and is_dark_theme():
+                display_pixmap = invert_pixmap(display_pixmap)
+            
+            self.setPixmap(display_pixmap)
+    
+    def update_theme(self):
+        if self._original_pixmap:
+            display_pixmap = self._original_pixmap.scaled(
+                self.size(),
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            
+            if self._invert_for_dark and is_dark_theme():
+                display_pixmap = invert_pixmap(display_pixmap)
+            
+            self.setPixmap(display_pixmap)
     
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -81,11 +153,13 @@ class IconGridWidget(QLabel):
 class IconGrid(QScrollArea):
     icon_selected = pyqtSignal(str)
     
-    def __init__(self, folder_path: str = "", parent=None):
+    def __init__(self, folder_path: str = "", invert_for_dark: bool = True, parent=None):
         super().__init__(parent)
         self.folder_path = folder_path
         self._icons: List[str] = []
-        self._loader_thread: IconLoaderThread = None
+        self._icon_widgets: List[IconGridWidget] = []
+        self._invert_for_dark = invert_for_dark
+        self._loader_thread: Optional[IconLoaderThread] = None
         
         self.setWidgetResizable(True)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -117,6 +191,7 @@ class IconGrid(QScrollArea):
         self._populate_grid()
     
     def _clear_grid(self):
+        self._icon_widgets.clear()
         while self._layout.count():
             item = self._layout.takeAt(0)
             if item.widget():
@@ -130,9 +205,14 @@ class IconGrid(QScrollArea):
             row = index // cols
             col = index % cols
             
-            icon_widget = IconGridWidget(icon_path, 48)
+            icon_widget = IconGridWidget(icon_path, 48, self._invert_for_dark)
             icon_widget.clicked.connect(self._on_icon_clicked)
+            self._icon_widgets.append(icon_widget)
             self._layout.addWidget(icon_widget, row, col)
+    
+    def update_theme(self):
+        for widget in self._icon_widgets:
+            widget.update_theme()
     
     def _on_icon_clicked(self, icon_path: str):
         self.icon_selected.emit(icon_path)
@@ -146,10 +226,11 @@ class IconGrid(QScrollArea):
 class TabbedIconGrid(QWidget):
     icon_selected = pyqtSignal(str)
     
-    def __init__(self, icon_folder: str, parent=None):
+    def __init__(self, icon_folder: str, invert_for_dark: bool = True, parent=None):
         super().__init__(parent)
         self.icon_folder = icon_folder
-        self._loaded_tabs: Dict[str, bool] = {}
+        self._invert_for_dark = invert_for_dark
+        self._loaded_tabs: Dict[str, IconGrid] = {}
         
         logger.info(f"TabbedIconGrid: Initializing with folder {icon_folder}")
         self._setup_ui()
@@ -180,10 +261,10 @@ class TabbedIconGrid(QWidget):
         logger.info(f"TabbedIconGrid: Found {len(subdirs)} subdirs: {subdirs}")
         
         if not subdirs:
-            grid = IconGrid(self.icon_folder)
+            grid = IconGrid(self.icon_folder, self._invert_for_dark)
             grid.icon_selected.connect(self.icon_selected.emit)
             self.tab_widget.addTab(grid, "Icons")
-            self._loaded_tabs["Icons"] = True
+            self._loaded_tabs["Icons"] = grid
         else:
             for subdir in sorted(subdirs):
                 placeholder = QLabel("Loading...")
@@ -203,10 +284,17 @@ class TabbedIconGrid(QWidget):
         if isinstance(current_widget, QLabel):
             folder_path = os.path.join(self.icon_folder, tab_name)
             logger.info(f"TabbedIconGrid: Loading icons from {folder_path}")
-            grid = IconGrid(folder_path)
+            grid = IconGrid(folder_path, self._invert_for_dark)
             grid.icon_selected.connect(self.icon_selected.emit)
             self.tab_widget.removeTab(index)
             self.tab_widget.insertTab(index, grid, tab_name)
             self.tab_widget.setCurrentIndex(index)
-            self._loaded_tabs[tab_name] = True
+            self._loaded_tabs[tab_name] = grid
             logger.info(f"TabbedIconGrid: Loaded tab '{tab_name}'")
+    
+    def update_theme(self):
+        logger.info("TabbedIconGrid: Updating theme for all loaded tabs")
+        for tab_name, grid in self._loaded_tabs.items():
+            if grid:
+                grid.update_theme()
+                logger.info(f"TabbedIconGrid: Updated theme for tab '{tab_name}'")

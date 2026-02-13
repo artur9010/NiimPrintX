@@ -10,9 +10,10 @@ from .icon_grid import TabbedIconGrid
 class IconPanel(QWidget):
     icon_added = pyqtSignal(str)
     
-    def __init__(self, app_config: AppConfig, parent=None):
+    def __init__(self, app_config: AppConfig, invert_for_dark: bool = True, parent=None):
         super().__init__(parent)
         self.app_config = app_config
+        self._invert_for_dark = invert_for_dark
         self._setup_ui()
     
     def _setup_ui(self):
@@ -22,7 +23,7 @@ class IconPanel(QWidget):
         group = QGroupBox("Icons")
         group_layout = QVBoxLayout(group)
         
-        self.tabbed_grid = TabbedIconGrid(self.app_config.icon_folder)
+        self.tabbed_grid = TabbedIconGrid(self.app_config.icon_folder, self._invert_for_dark)
         self.tabbed_grid.icon_selected.connect(self._on_icon_selected)
         group_layout.addWidget(self.tabbed_grid)
         
@@ -51,3 +52,6 @@ class IconPanel(QWidget):
         )
         if file_path:
             self.icon_added.emit(file_path)
+    
+    def update_theme(self):
+        self.tabbed_grid.update_theme()
