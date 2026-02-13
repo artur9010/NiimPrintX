@@ -232,23 +232,22 @@ class TabbedIconGrid(QWidget):
         
         logger.info(f"TabbedIconGrid: Initializing with folder {icon_folder}")
         self._setup_ui()
-        self._load_tabs()
+        self._load_all_tabs()
     
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         
         self.tab_widget = QTabWidget()
-        self.tab_widget.currentChanged.connect(self._on_tab_changed)
         layout.addWidget(self.tab_widget)
     
-    def _load_tabs(self):
+    def _load_all_tabs(self):
         if not os.path.isdir(self.icon_folder):
             logger.warning(f"TabbedIconGrid: Icon folder not found: {self.icon_folder}")
             self.tab_widget.addTab(QLabel("No icons folder found"), "Empty")
             return
         
-        logger.info(f"TabbedIconGrid: Loading tabs from {self.icon_folder}")
+        logger.info(f"TabbedIconGrid: Preloading all tabs from {self.icon_folder}")
         
         subdirs = []
         for item in os.listdir(self.icon_folder):
@@ -265,34 +264,16 @@ class TabbedIconGrid(QWidget):
             self._loaded_tabs["Icons"] = grid
         else:
             for subdir in sorted(subdirs):
-                placeholder = QLabel("Loading...")
-                placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                self.tab_widget.addTab(placeholder, subdir)
-                logger.info(f"TabbedIconGrid: Added tab '{subdir}'")
-    
-    def _on_tab_changed(self, index: int):
-        tab_name = self.tab_widget.tabText(index)
-        logger.info(f"TabbedIconGrid: Tab changed to '{tab_name}' (index {index})")
+                folder_path = os.path.join(self.icon_folder, subdir)
+                logger.info(f"TabbedIconGrid: Preloading tab '{subdir}'")
+                grid = IconGrid(folder_path, self._invert_for_dark)
+                grid.icon_selected.connect(self.icon_selected.emit)
+                self.tab_widget.addTab(grid, subdir)
+                self._loaded_tabs[subdir] = grid
         
-        if tab_name in self._loaded_tabs:
-            logger.info(f"TabbedIconGrid: Tab '{tab_name}' already loaded")
-            return
-        
-        current_widget = self.tab_widget.widget(index)
-        if isinstance(current_widget, QLabel):
-            folder_path = os.path.join(self.icon_folder, tab_name)
-            logger.info(f"TabbedIconGrid: Loading icons from {folder_path}")
-            grid = IconGrid(folder_path, self._invert_for_dark)
-            grid.icon_selected.connect(self.icon_selected.emit)
-            self.tab_widget.removeTab(index)
-            self.tab_widget.insertTab(index, grid, tab_name)
-            self.tab_widget.setCurrentIndex(index)
-            self._loaded_tabs[tab_name] = grid
-            logger.info(f"TabbedIconGrid: Loaded tab '{tab_name}'")
+        logger.info(f"TabbedIconGrid: All {len(self._loaded_tabs)} tabs loaded")
     
     def update_theme(self):
-        logger.info("TabbedIconGrid: Updating theme for all loaded tabs")
         for tab_name, grid in self._loaded_tabs.items():
             if grid:
                 grid.update_theme()
-                logger.info(f"TabbedIconGrid: Updated theme for tab '{tab_name}'")

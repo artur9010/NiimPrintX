@@ -90,8 +90,7 @@ class MainWindow(QMainWindow):
         self.icon_panel = IconPanel(self.app_config)
         
         control_layout.addWidget(self.text_panel)
-        control_layout.addWidget(self.icon_panel)
-        control_layout.addStretch()
+        control_layout.addWidget(self.icon_panel, stretch=1)
         
         self.canvas = DesignCanvas(self.app_config)
         

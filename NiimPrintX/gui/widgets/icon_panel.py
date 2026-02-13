@@ -25,7 +25,7 @@ class IconPanel(QWidget):
         
         self.tabbed_grid = TabbedIconGrid(self.app_config.icon_folder, self._invert_for_dark)
         self.tabbed_grid.icon_selected.connect(self._on_icon_selected)
-        group_layout.addWidget(self.tabbed_grid)
+        group_layout.addWidget(self.tabbed_grid, stretch=1)
         
         import_row = QWidget()
         import_layout = QVBoxLayout(import_row)
@@ -37,8 +37,7 @@ class IconPanel(QWidget):
         
         group_layout.addWidget(import_row)
         
-        layout.addWidget(group)
-        layout.addStretch()
+        layout.addWidget(group, stretch=1)
     
     def _on_icon_selected(self, icon_path: str):
         self.icon_added.emit(icon_path)
