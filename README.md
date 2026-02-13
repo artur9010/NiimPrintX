@@ -1,3 +1,5 @@
+<h1 align="center">NiimPrintX Fork</h1>
+
 Fork of NiimPrintX with fixed issue of priting in wrong orientation, also I wanted to test GLM-5 so I started a rewrite from fkin tkinter to glorious pyqt6.
 
 Tested by myself on D110 and on nixos (using shell.nix env). Old poetry/requirements.txt will probably not work, it is probably also incompatible with anything other than linux. I don't have any windows machine to test it and i don't plan having one.
@@ -35,13 +37,6 @@ Probably none, i were just being annoyed with old tkinter app. Maybe a mobile UI
 
 # Old description
 
-<h1 align="center">NiimPrintX</h1>
-<p align="center">
-<a href="https://github.com/labbots/NiimPrintX/releases"><img src="https://img.shields.io/github/release/labbots/NiimPrintX.svg?style=for-the-badge" alt="Latest Release"></a>
-<a href="https://github.com/labbots/NiimPrintX/actions/workflows/tag.yaml"><img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/labbots/NiimPrintX/tag.yaml?style=for-the-badge"></a>
-<a href="https://github.com/labbots/NiimPrintX/commits/main/"><img alt="GitHub commits since latest release" src="https://img.shields.io/github/commits-since/labbots/NiimPrintX/latest?style=for-the-badge"></a>
-</p>
-
 NiimPrintX is a Python library designed to seamlessly interface with NiimBot label printers via Bluetooth. 
 It provides both a Command-Line Interface (CLI) and a Graphical User Interface (GUI) for users to design and print labels efficiently.
 
@@ -52,44 +47,6 @@ It provides both a Command-Line Interface (CLI) and a Graphical User Interface (
 * **Dual Interface Options:** Provides both Command-Line Interface (CLI) and Graphical User Interface (GUI) to suit different user preferences.
 * **Custom Label Design:** The GUI app enables users to design labels tailored to specific devices and label sizes.
 * **Advanced Print Settings:** Customize print density, quantity, and image rotation for precise label printing.
-
-## Requirements
-To run NiimPrintX, you need to have the following installed:
-
-* Python 3.12 or later
-* ImageMagick library
-* Poetry for dependency management
-
-
-## Installation
-To install NiimPrintX, follow these steps:
-
-* Ensure that ImageMagick is installed and properly configured on your system. You can download it from [here](https://imagemagick.org/script/download.php).
-
-Clone the repository:
-
-```shell
-git clone https://github.com/labbots/NiimPrintX.git
-cd NiimPrintX
-```
-Install the necessary dependencies using Poetry:
-
-```shell
-python -m venv venv
-poetry install
-```
-
-### Note:
-MacOS specific setup for local development
-
-```shell
-brew install libffi
-brew install glib gobject-introspection cairo pkg-config
-
-export PKG_CONFIG_PATH="/usr/local/opt/libffi/lib/pkgconfig"
-export LDFLAGS="-L/usr/local/opt/libffi/lib"
-export CFLAGS="-I/usr/local/opt/libffi/include"
-```
 
 
 ## Usage
@@ -146,13 +103,6 @@ Options:
 
 ```shell
 python -m NiimPrintX.cli info -m d110
-```
-
-### Graphical User Interface (GUI)
-The GUI application allows users to design labels based on the label device and label size. Simply run the GUI application:
-
-```shell
-python -m NiimPrintX.ui
 ```
 
 ## Contributing

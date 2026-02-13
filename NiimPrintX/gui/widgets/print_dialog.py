@@ -1,7 +1,7 @@
 from typing import Optional
 from PyQt6.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
-    QSpinBox, QProgressBar, QGroupBox, QFormLayout, QMessageBox
+    QSpinBox, QProgressBar, QGroupBox, QFormLayout, QMessageBox, QScrollArea
 )
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
@@ -28,14 +28,29 @@ class PrintDialog(QDialog):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         
-        preview_group = QGroupBox("Preview")
+        preview_group = QGroupBox("Preview (Actual Size)")
         preview_layout = QVBoxLayout(preview_group)
+        
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(False)
+        scroll_area.setStyleSheet("background-color: white; border: 1px solid #ccc;")
         
         self.preview_label = QLabel()
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.preview_label.setMinimumSize(300, 150)
-        self.preview_label.setStyleSheet("background-color: white; border: 1px solid #ccc;")
-        preview_layout.addWidget(self.preview_label)
+        scroll_area.setWidget(self.preview_label)
+        
+        width_mm, height_mm = self.app_config.get_label_size_mm()
+        label_width = self.app_config.mm_to_pixels(width_mm)
+        label_height = self.app_config.mm_to_pixels(height_mm)
+        
+        max_preview_width = 400
+        max_preview_height = 300
+        scroll_area.setMinimumSize(
+            min(label_width + 20, max_preview_width),
+            min(label_height + 20, max_preview_height)
+        )
+        
+        preview_layout.addWidget(scroll_area)
         
         layout.addWidget(preview_group)
         
@@ -84,14 +99,9 @@ class PrintDialog(QDialog):
     def _update_preview(self):
         image = self.canvas.get_print_image()
         if image:
-            grayscale = image.convertToFormat(image.Format.Format_Grayscale8)
-            pixmap = QPixmap.fromImage(grayscale)
-            scaled = pixmap.scaled(
-                280, 130,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
-            self.preview_label.setPixmap(scaled)
+            pixmap = QPixmap.fromImage(image)
+            self.preview_label.setPixmap(pixmap)
+            self.preview_label.setFixedSize(pixmap.size())
     
     def _on_print_clicked(self):
         if self._bt_worker is None:
