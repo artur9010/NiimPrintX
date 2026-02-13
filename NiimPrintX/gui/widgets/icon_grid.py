@@ -198,15 +198,10 @@ class IconGrid(QScrollArea):
             if item.widget():
                 item.widget().deleteLater()
     
-    def _calculate_columns(self) -> int:
-        available_width = self.viewport().width() - 10
-        cols = max(1, available_width // (self._icon_size + 5))
-        return cols
-    
     def _populate_grid(self):
         self._clear_grid()
         
-        cols = self._calculate_columns()
+        cols = 4
         logger.info(f"IconGrid: Populating grid with {len(self._icons)} icons in {cols} columns")
         
         for index, icon_path in enumerate(self._icons):
@@ -217,11 +212,6 @@ class IconGrid(QScrollArea):
             icon_widget.clicked.connect(self._on_icon_clicked)
             self._icon_widgets.append(icon_widget)
             self._layout.addWidget(icon_widget, row, col)
-    
-    def resizeEvent(self, event):
-        super().resizeEvent(event)
-        if self._icons:
-            self._populate_grid()
     
     def update_theme(self):
         for widget in self._icon_widgets:

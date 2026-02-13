@@ -1,6 +1,6 @@
 from typing import Optional
 from PyQt6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QMenuBar, QMenu, QToolBar, QFileDialog, QMessageBox
 )
 from PyQt6.QtCore import Qt, QTimer
@@ -76,9 +76,13 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(10, 10, 10, 10)
         main_layout.setSpacing(10)
         
-        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        content_widget = QWidget()
+        content_layout = QHBoxLayout(content_widget)
+        content_layout.setContentsMargins(0, 0, 0, 0)
+        content_layout.setSpacing(10)
         
         self.control_panel = QWidget()
+        self.control_panel.setFixedWidth(280)
         control_layout = QVBoxLayout(self.control_panel)
         control_layout.setContentsMargins(0, 0, 0, 0)
         
@@ -91,11 +95,10 @@ class MainWindow(QMainWindow):
         
         self.canvas = DesignCanvas(self.app_config)
         
-        self.splitter.addWidget(self.control_panel)
-        self.splitter.addWidget(self.canvas)
-        self.splitter.setSizes([300, 800])
+        content_layout.addWidget(self.control_panel)
+        content_layout.addWidget(self.canvas, stretch=1)
         
-        main_layout.addWidget(self.splitter, stretch=1)
+        main_layout.addWidget(content_widget, stretch=1)
         
         bottom_widget = QWidget()
         bottom_layout = QHBoxLayout(bottom_widget)
