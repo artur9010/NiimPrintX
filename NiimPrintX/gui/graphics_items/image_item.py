@@ -17,7 +17,7 @@ class ImageGraphicsItem(QGraphicsObject):
         self._image_path: str = ""
         self._image_data: Optional[bytes] = None
         self._pixmap: Optional[QPixmap] = None
-        self._original_pixmap: Optional[QPixmap] = None
+        self._grayscale_pixmap: Optional[QPixmap] = None
         self._bounding_rect = QRectF()
         self._scale = 1.0
         
@@ -47,42 +47,33 @@ class ImageGraphicsItem(QGraphicsObject):
     
     def _load_from_path(self, path: str):
         if os.path.exists(path):
-            color_pixmap = QPixmap(path)
-            if not color_pixmap.isNull():
-                self._original_pixmap = color_pixmap
-                self._pixmap = self._to_grayscale(color_pixmap)
+            pixmap = QPixmap(path)
+            if not pixmap.isNull():
+                self._grayscale_pixmap = self._to_grayscale(pixmap)
+                self._pixmap = self._grayscale_pixmap
                 self._bounding_rect = QRectF(0, 0, self._pixmap.width(), self._pixmap.height())
     
     def _load_from_data(self, data: bytes):
         image = QImage()
         if image.loadFromData(data):
-            color_pixmap = QPixmap.fromImage(image)
-            self._original_pixmap = color_pixmap
-            self._pixmap = self._to_grayscale(color_pixmap)
+            pixmap = QPixmap.fromImage(image)
+            self._grayscale_pixmap = self._to_grayscale(pixmap)
+            self._pixmap = self._grayscale_pixmap
             self._bounding_rect = QRectF(0, 0, self._pixmap.width(), self._pixmap.height())
     
     def _to_grayscale(self, pixmap: QPixmap) -> QPixmap:
         image = pixmap.toImage()
-        result = QImage(image.width(), image.height(), QImage.Format.Format_ARGB32)
-        
-        for y in range(image.height()):
-            for x in range(image.width()):
-                color = image.pixelColor(x, y)
-                gray = int(0.299 * color.red() + 0.587 * color.green() + 0.114 * color.blue())
-                gray_color = QColor(gray, gray, gray, color.alpha())
-                result.setPixelColor(x, y, gray_color)
-        
-        return QPixmap.fromImage(result)
+        result = image.convertToFormat(QImage.Format.Format_Grayscale8)
+        return QPixmap.fromImage(result.convertToFormat(QImage.Format.Format_ARGB32))
     
     def _apply_scale(self):
-        if self._original_pixmap and not self._original_pixmap.isNull():
-            scaled_size = self._original_pixmap.size() * self._scale
-            color_scaled = self._original_pixmap.scaled(
+        if self._grayscale_pixmap and not self._grayscale_pixmap.isNull():
+            scaled_size = self._grayscale_pixmap.size() * self._scale
+            self._pixmap = self._grayscale_pixmap.scaled(
                 scaled_size,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )
-            self._pixmap = self._to_grayscale(color_scaled)
             self._bounding_rect = QRectF(0, 0, self._pixmap.width(), self._pixmap.height())
     
     def _get_handle_rect(self, corner: str) -> QRectF:
@@ -166,7 +157,7 @@ class ImageGraphicsItem(QGraphicsObject):
         super().mousePressEvent(event)
     
     def mouseMoveEvent(self, event):
-        if self._is_resizing and self._original_pixmap:
+        if self._is_resizing and self._grayscale_pixmap:
             delta = event.pos() - self._resize_start_pos
             
             if self._resize_handle == 'br':
@@ -205,11 +196,11 @@ class ImageGraphicsItem(QGraphicsObject):
             height=self._bounding_rect.height()
         )
         item.data['scale'] = self._scale
-        if self._pixmap:
+        if self._grayscale_pixmap:
             buffer = QByteArray()
             buffer_device = QBuffer(buffer)
             buffer_device.open(QBuffer.OpenModeFlag.WriteOnly)
-            self._pixmap.save(buffer_device, "PNG")
+            self._grayscale_pixmap.save(buffer_device, "PNG")
             item.image_data = bytes(buffer.data())
         return item
     
@@ -223,11 +214,11 @@ class ImageGraphicsItem(QGraphicsObject):
             'image_path': self._image_path,
             'data': {'scale': self._scale}
         }
-        if self._original_pixmap:
+        if self._grayscale_pixmap:
             buffer = QByteArray()
             buffer_device = QBuffer(buffer)
             buffer_device.open(QBuffer.OpenModeFlag.WriteOnly)
-            self._original_pixmap.save(buffer_device, "PNG")
+            self._grayscale_pixmap.save(buffer_device, "PNG")
             data['image_data'] = base64.b64encode(bytes(buffer.data())).decode('ascii')
         return data
     
