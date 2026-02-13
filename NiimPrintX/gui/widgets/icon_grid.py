@@ -159,6 +159,7 @@ class IconGrid(QScrollArea):
         self._icons: List[str] = []
         self._icon_widgets: List[IconGridWidget] = []
         self._invert_for_dark = invert_for_dark
+        self._icon_size = 48
         self._loader_thread: Optional[IconLoaderThread] = None
         
         self.setWidgetResizable(True)
@@ -197,18 +198,30 @@ class IconGrid(QScrollArea):
             if item.widget():
                 item.widget().deleteLater()
     
+    def _calculate_columns(self) -> int:
+        available_width = self.viewport().width() - 10
+        cols = max(1, available_width // (self._icon_size + 5))
+        return cols
+    
     def _populate_grid(self):
         self._clear_grid()
         
-        cols = 4
+        cols = self._calculate_columns()
+        logger.info(f"IconGrid: Populating grid with {len(self._icons)} icons in {cols} columns")
+        
         for index, icon_path in enumerate(self._icons):
             row = index // cols
             col = index % cols
             
-            icon_widget = IconGridWidget(icon_path, 48, self._invert_for_dark)
+            icon_widget = IconGridWidget(icon_path, self._icon_size, self._invert_for_dark)
             icon_widget.clicked.connect(self._on_icon_clicked)
             self._icon_widgets.append(icon_widget)
             self._layout.addWidget(icon_widget, row, col)
+    
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self._icons:
+            self._populate_grid()
     
     def update_theme(self):
         for widget in self._icon_widgets:
@@ -216,11 +229,6 @@ class IconGrid(QScrollArea):
     
     def _on_icon_clicked(self, icon_path: str):
         self.icon_selected.emit(icon_path)
-    
-    def wheelEvent(self, event):
-        delta = event.angleDelta().y()
-        bar = self.verticalScrollBar()
-        bar.setValue(bar.value() - delta // 2)
 
 
 class TabbedIconGrid(QWidget):
