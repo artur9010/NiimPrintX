@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsRectItem
 from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QPointF
 from PyQt6.QtGui import QColor, QPen, QBrush, QImage, QPainter
 
-from ..models import AppConfig
+from ..models import AppConfig, TextItem, ImageItem
 from ..graphics_items import TextGraphicsItem, ImageGraphicsItem
 
 
@@ -95,10 +95,15 @@ class LabelScene(QGraphicsScene):
             items_data.append(item.to_dict())
         return items_data
     
-    def from_dict(self, items_data: List[Dict[str, Any]]):
+    def from_dict(self, items_data):
         self.clear_items()
-        center = self.get_center()
         
+        if isinstance(items_data, list):
+            self._load_new_format(items_data)
+        elif isinstance(items_data, dict):
+            self._load_old_format(items_data)
+    
+    def _load_new_format(self, items_data: List[Dict[str, Any]]):
         for item_data in items_data:
             item_type = item_data.get('item_type')
             if item_type == 'text':
@@ -109,6 +114,56 @@ class LabelScene(QGraphicsScene):
                 item = ImageGraphicsItem.from_dict(item_data, self.app_config)
                 item.setPos(item_data.get('x', 0), item_data.get('y', 0))
                 self.addItem(item)
+    
+    def _load_old_format(self, data: Dict[str, Any]):
+        import base64
+        import io
+        from PIL import Image
+        
+        label_rect = self.get_label_rect()
+        offset_x = label_rect.left()
+        offset_y = label_rect.top()
+        
+        if 'text' in data:
+            for text_id, item_data in data['text'].items():
+                coords = item_data.get('coords', [0, 0])
+                font_props = item_data.get('font_props', {})
+                
+                text_item = TextItem(
+                    content=item_data.get('content', ''),
+                    font_family=font_props.get('family', 'Arial'),
+                    font_size=font_props.get('size', 16),
+                    font_weight='bold' if font_props.get('weight') == 'bold' else 'normal',
+                    font_slant='italic' if font_props.get('slant') == 'italic' else 'roman',
+                    underline=font_props.get('underline', False),
+                    x=coords[0] if coords else 0,
+                    y=coords[1] if len(coords) > 1 else 0
+                )
+                
+                item = TextGraphicsItem(text_item, self.app_config)
+                item.setPos(offset_x + coords[0] if coords else offset_x, 
+                           offset_y + coords[1] if len(coords) > 1 else offset_y)
+                self.addItem(item)
+        
+        if 'image' in data:
+            for image_id, item_data in data['image'].items():
+                coords = item_data.get('coords', [0, 0])
+                
+                image_data = item_data.get('original_image')
+                if image_data:
+                    img_bytes = base64.b64decode(image_data)
+                    pil_image = Image.open(io.BytesIO(img_bytes))
+                    
+                    image_item = ImageItem(
+                        x=coords[0] if coords else 0,
+                        y=coords[1] if len(coords) > 1 else 0,
+                        image_data=img_bytes
+                    )
+                    
+                    item = ImageGraphicsItem(image_item, self.app_config)
+                    item.setPos(offset_x + coords[0] if coords else offset_x,
+                               offset_y + coords[1] if len(coords) > 1 else offset_y)
+                    self.addItem(item)
     
     def render_to_image(self) -> QImage:
         label_box = self.label_box
