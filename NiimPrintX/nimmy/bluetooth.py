@@ -8,10 +8,15 @@ logger = get_logger()
 
 
 async def find_device(device_name_prefix=None):
+    logger.info(f"Scanning for BLE devices with prefix '{device_name_prefix}'...")
     devices = await BleakScanner.discover()
+    logger.debug(f"Found {len(devices)} BLE devices")
     for device in devices:
+        logger.debug(f"  - {device.name} ({device.address})")
         if device.name and device.name.lower().startswith(device_name_prefix.lower()):
+            logger.info(f"Matched device: {device.name} at {device.address}")
             return device
+    logger.error(f"Device '{device_name_prefix}' not found among {len(devices)} discovered devices")
     raise BLEException(f"Failed to find device {device_name_prefix}")
 
 
@@ -49,31 +54,77 @@ class BLETransport:
             await self.client.disconnect()
             logger.info("Disconnected.")
 
-    async def connect(self, address):
+    async def connect(self, address, timeout=10):
+        logger.debug(f"BLETransport.connect() called with address={address}")
         if self.client is None:
-            self.client = BleakClient(address)
+            logger.debug(f"Creating new BleakClient for {address}")
+            self.client = BleakClient(address, timeout=timeout)
         if not self.client.is_connected:
-            return await self.client.connect()
-        return False
+            logger.info(f"Attempting to connect to {address}...")
+            try:
+                result = await asyncio.wait_for(self.client.connect(), timeout=timeout)
+                if result or self.client.is_connected:
+                    logger.info(f"Successfully connected to {address}")
+                    return True
+                else:
+                    logger.warning(f"BleakClient.connect() returned False, but checking actual state...")
+                    await asyncio.sleep(0.5)
+                    if self.client.is_connected:
+                        logger.info(f"Device is actually connected to {address}")
+                        return True
+                    raise BLEException(f"Failed to connect to {address}")
+            except asyncio.TimeoutError:
+                logger.error(f"Connection timeout for {address}")
+                raise BLEException(f"Connection timeout for {address}")
+            except Exception as e:
+                logger.error(f"Failed to connect to {address}: {e}", exc_info=True)
+                raise
+        logger.debug(f"Client already connected to {address}")
+        return True
 
     async def disconnect(self):
         if self.client and self.client.is_connected:
-            await self.client.disconnect()
+            logger.info(f"Disconnecting from {self.client.address}...")
+            try:
+                await self.client.disconnect()
+                logger.info("Disconnected.")
+            except EOFError:
+                logger.warning("Disconnect failed with EOFError - connection likely already closed")
+            except Exception as e:
+                logger.warning(f"Disconnect error: {e}")
 
-    async def write(self, data, char_uuid):
+    async def write(self, data, char_specifier):
         if self.client and self.client.is_connected:
-            await self.client.write_gatt_char(char_uuid, data)
+            if hasattr(char_specifier, 'handle'):
+                handle = char_specifier.handle
+            else:
+                handle = char_specifier
+            logger.trace(f"write_gatt_char: handle={handle}, len={len(data)}")
+            await self.client.write_gatt_char(handle, data)
         else:
+            logger.error("Write failed: BLE client is not connected")
             raise BLEException("BLE client is not connected.")
 
-    async def start_notification(self, char_uuid, handler):
+    async def start_notification(self, char_specifier, handler):
         if self.client and self.client.is_connected:
-            await self.client.start_notify(char_uuid, handler)
+            if hasattr(char_specifier, 'handle'):
+                handle = char_specifier.handle
+            else:
+                handle = char_specifier
+            logger.trace(f"start_notify: handle={handle}")
+            await self.client.start_notify(handle, handler)
         else:
+            logger.error("start_notification failed: BLE client is not connected")
             raise BLEException("BLE client is not connected.")
 
-    async def stop_notification(self, char_uuid):
+    async def stop_notification(self, char_specifier):
         if self.client and self.client.is_connected:
-            await self.client.stop_notify(char_uuid)
+            if hasattr(char_specifier, 'handle'):
+                handle = char_specifier.handle
+            else:
+                handle = char_specifier
+            logger.trace(f"stop_notify: handle={handle}")
+            await self.client.stop_notify(handle)
         else:
+            logger.error("stop_notification failed: BLE client is not connected")
             raise BLEException("BLE client is not connected.")

@@ -19,23 +19,6 @@ import threading
 
 from loguru import logger
 
-
-logger.disable('NiimPrintX.nimmy')
-
-# import sys
-# import logging
-#
-# logging.basicConfig(level=logging.DEBUG, filename='/Users/dhivah/Documents/Personal/repos/NiimPrintX/logfile.log', filemode='w',
-#                     format='%(name)s - %(levelname)s - %(message)s')
-
-# def handle_exception(exc_type, exc_value, exc_traceback):
-#     if issubclass(exc_type, KeyboardInterrupt):
-#         sys.__exit__(0)
-#     else:
-#         logging.error("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
-#
-# sys.excepthook = handle_exception
-
 from devtools import debug
 class LabelPrinterApp(tk.Tk):
     def __init__(self):
@@ -64,6 +47,8 @@ class LabelPrinterApp(tk.Tk):
         threading.Thread(target=self.start_asyncio_loop, daemon=True).start()
 
         self.app_config = AppConfig()
+        style = ttk.Style(self)
+        style.theme_use('clam')
         if self.app_config.os_system == "Darwin":
             style = ttk.Style(self)
             style.theme_use('aqua')

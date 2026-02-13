@@ -44,80 +44,129 @@ class RequestCodeEnum(enum.IntEnum):
 
 class PrinterClient:
     def __init__(self, device):
-        self.char_uuid = None
+        self._characteristic = None
         self.device = device
         self.transport = BLETransport()
         self.notification_event = asyncio.Event()
         self.notification_data = None
+        self._ble_lock = asyncio.Lock()
 
     async def connect(self):
-        if await self.transport.connect(self.device.address):
-            if not self.char_uuid:
-                await self.find_characteristics()
-            logger.info(f"Successfully connected to {self.device.name}")
-            return True
-        logger.error("Connection failed.")
-        return False
+        logger.debug(f"PrinterClient.connect() called for device: {self.device.name} ({self.device.address})")
+        result = await self.transport.connect(self.device.address)
+        if not result:
+            logger.error(f"Connection failed to {self.device.name}")
+            raise BLEException(f"Failed to connect to {self.device.name}")
+        
+        if not self._characteristic:
+            await self._find_characteristics()
+        logger.info(f"Successfully connected to {self.device.name}")
+        return True
 
-    async def disconnect(self):
-        await self.transport.disconnect()
-        logger.info(f"Printer {self.device.name} disconnected.")
+    @property
+    def char_handle(self):
+        return self._characteristic.handle if self._characteristic else None
 
-    async def find_characteristics(self):
-        services = {}
-        for service in self.transport.client.services:
-            s = []
-            for char in service.characteristics:
-                s.append({
-                    "id": char.uuid,
-                    "handle": char.handle,
-                    "properties": char.properties
-                })
+    async def _find_characteristics(self):
+        logger.info("Discovering GATT services and characteristics...")
+        try:
+            services = self.transport.client.services
+            for service in services:
+                try:
+                    service_uuid = str(service.uuid)
+                except ValueError as e:
+                    logger.warning(f"Service has malformed UUID: {e}")
+                    service_uuid = "unknown"
+                logger.info(f"Service: {service_uuid}")
+                
+                for char in service.characteristics:
+                    try:
+                        char_uuid = char.uuid
+                        logger.info(f"  Characteristic: uuid={char_uuid}, handle={char.handle}, props={char.properties}")
+                    except ValueError as e:
+                        logger.warning(f"  Characteristic at handle {char.handle} has malformed UUID, checking properties...")
+                    
+                    props = char.properties
+                    if 'read' in props and 'write-without-response' in props and 'notify' in props:
+                        if not self._characteristic:
+                            self._characteristic = char
+                            logger.info(f"Selected printer characteristic: handle={char.handle}")
+        except ValueError as e:
+            logger.error(f"Service discovery failed with UUID parsing error: {e}")
+            raise PrinterException(f"Cannot discover services - malformed UUIDs from device")
+        except Exception as e:
+            logger.error(f"Service discovery failed: {e}")
+            raise PrinterException(f"Cannot discover services: {e}")
 
-            services[service.uuid] = s
-
-        for service_id, characteristics in services.items():
-            if len(characteristics) == 1:  # Check if there's exactly one characteristic
-                props = characteristics[0]['properties']
-                if 'read' in props and 'write-without-response' in props and 'notify' in props:
-                    self.char_uuid = characteristics[0]['id']  # Return the service ID that meets the criteria
-        if not self.char_uuid:
+        if not self._characteristic:
+            logger.error("No suitable characteristic found")
             raise PrinterException("Cannot find bluetooth characteristics.")
 
-    async def send_command(self, request_code, data, timeout=10):
+    async def disconnect(self):
+        logger.debug(f"PrinterClient.disconnect() called for {self.device.name}")
         try:
-            if not self.transport.client or not self.transport.client.is_connected:
-                await self.connect()
-            packet = NiimbotPacket(request_code, data)
-            await self.transport.start_notification(self.char_uuid, self.notification_handler)
-            await self.transport.write(packet.to_bytes(), self.char_uuid)
-            logger.debug(f"Printer command sent - {RequestCodeEnum(request_code).name}")
-            await asyncio.wait_for(self.notification_event.wait(), timeout)  # Wait until the notification event is set
-            response = NiimbotPacket.from_bytes(self.notification_data)
-            await self.transport.stop_notification(self.char_uuid)
-            self.notification_event.clear()  # Reset the event for the next notification
-            return response
-        except asyncio.TimeoutError:
-            logger.error(f"Timeout occurred for request {RequestCodeEnum(request_code).name}")
-        except BLEException as e:
-            logger.error(f"An error occurred: {e}")
+            await self.transport.disconnect()
+            logger.info(f"Printer {self.device.name} disconnected.")
+        except EOFError:
+            logger.warning(f"Disconnect encountered EOFError - connection already closed")
+        except Exception as e:
+            logger.warning(f"Disconnect error (may be already closed): {e}")
+
+    async def send_command(self, request_code, data, timeout=10):
+        async with self._ble_lock:
+            try:
+                if not self.transport.client or not self.transport.client.is_connected:
+                    logger.debug(f"send_command: client not connected, reconnecting...")
+                    await self.connect()
+
+                packet = NiimbotPacket(request_code, data)
+                logger.trace(f"send_command: starting notification...")
+                await self.transport.start_notification(self._characteristic, self.notification_handler)
+
+                logger.trace(f"send_command: writing {len(packet.to_bytes())} bytes...")
+                await self.transport.write(packet.to_bytes(), self._characteristic)
+
+                logger.debug(f"Printer command sent - {RequestCodeEnum(request_code).name}")
+                await asyncio.wait_for(self.notification_event.wait(), timeout)
+                response = NiimbotPacket.from_bytes(self.notification_data)
+
+                logger.trace(f"send_command: stopping notification...")
+                await self.transport.stop_notification(self._characteristic)
+                self.notification_event.clear()
+                return response
+            except asyncio.TimeoutError:
+                logger.error(f"Timeout occurred for request {RequestCodeEnum(request_code).name}")
+                try:
+                    await self.transport.stop_notification(self._characteristic)
+                except Exception:
+                    pass
+                self.notification_event.clear()
+            except ValueError as e:
+                if 'None' in str(e):
+                    logger.error(f"UUID parsing error in send_command: {e}")
+                else:
+                    raise
+            except BLEException as e:
+                logger.error(f"An error occurred: {e}")
 
     async def write_raw(self, data):
-        try:
-            if not self.transport.client or not self.transport.client.is_connected:
-                await self.connect()
-            await self.transport.write(data.to_bytes(), self.char_uuid)
-        except BLEException as e:
-            logger.error(f"An error occurred: {e}")
+        async with self._ble_lock:
+            try:
+                if not self.transport.client or not self.transport.client.is_connected:
+                    await self.connect()
+                await self.transport.write(data.to_bytes(), self._characteristic)
+            except BLEException as e:
+                logger.error(f"An error occurred: {e}")
 
     async def write_no_notify(self, request_code, data):
-        try:
-            if not self.transport.client or not self.transport.client.is_connected:
-                await self.connect()
-            packet = NiimbotPacket(request_code, data)
-            await self.transport.write(packet.to_bytes(), self.char_uuid)
-        except BLEException as e:
-            logger.error(f"An error occurred: {e}")
+        async with self._ble_lock:
+            try:
+                if not self.transport.client or not self.transport.client.is_connected:
+                    await self.connect()
+                packet = NiimbotPacket(request_code, data)
+                await self.transport.write(packet.to_bytes(), self._characteristic)
+            except BLEException as e:
+                logger.error(f"An error occurred: {e}")
 
     def notification_handler(self, sender, data):
         # print(f"Notification from {sender}: {data}")

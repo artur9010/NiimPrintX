@@ -2,8 +2,9 @@ from tkinter import messagebox
 
 from NiimPrintX.nimmy.bluetooth import find_device
 from NiimPrintX.nimmy.printer import PrinterClient
+from NiimPrintX.nimmy.logger_config import get_logger
 
-from devtools import debug
+logger = get_logger()
 
 
 class PrinterOperation:
@@ -19,7 +20,7 @@ class PrinterOperation:
                 self.config.printer_connected = True
                 return True
         except Exception as e:
-            # debug(e)
+            logger.error(f"Failed to connect to printer {model}: {e}", exc_info=True)
             messagebox.showerror("Error", f"Cannot connect to printer {model}.")
             return False
 
@@ -52,6 +53,6 @@ class PrinterOperation:
                 hb = await self.printer.heartbeat()
                 return True, hb
         except Exception as e:
-            # print(f"Error {e}")
+            logger.warning(f"Heartbeat failed, printer disconnected: {e}")
             self.printer = None
             return False, {}

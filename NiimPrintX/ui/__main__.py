@@ -3,8 +3,6 @@ import sys
 import platform
 from NiimPrintX.ui.main import LabelPrinterApp
 
-from NiimPrintX.ui.SplashScreen import SplashScreen
-
 
 def load_libraries():
     if hasattr(sys, '_MEIPASS'):
@@ -40,14 +38,11 @@ def resource_path(relative_path):
 if __name__ == "__main__":
     try:
         app = LabelPrinterApp()
-        image_path = resource_path('NiimPrintX/ui/assets/Niimprintx.png')
-        splash = SplashScreen(image_path, app)  # Create the splash screen
 
         # Hide the main window initially
         # app.withdraw()
         app.load_resources()  # Start loading resources, then show the main window
-        app.after(5000, splash.destroy)  # Automatically destroy the splash screen after 5 seconds
-        app.after(5000, app.deiconify)
+        app.after(1, app.deiconify)
         app.mainloop()
     except Exception as e:
         print(f"Error {e}")
