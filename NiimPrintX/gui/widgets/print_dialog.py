@@ -84,7 +84,8 @@ class PrintDialog(QDialog):
     def _update_preview(self):
         image = self.canvas.get_print_image()
         if image:
-            pixmap = QPixmap.fromImage(image)
+            grayscale = image.convertToFormat(image.Format.Format_Grayscale8)
+            pixmap = QPixmap.fromImage(grayscale)
             scaled = pixmap.scaled(
                 280, 130,
                 Qt.AspectRatioMode.KeepAspectRatio,

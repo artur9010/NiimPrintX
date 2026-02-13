@@ -138,7 +138,8 @@ class LabelScene(QGraphicsScene):
         for item in selected_items:
             item.setSelected(True)
         
-        return image
+        grayscale = image.convertToFormat(QImage.Format.Format_Grayscale8)
+        return grayscale.convertToFormat(QImage.Format.Format_ARGB32)
 
 
 class DesignCanvas(QGraphicsView):
