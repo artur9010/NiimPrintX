@@ -41,8 +41,8 @@ if __name__ == "__main__":
 
         # Hide the main window initially
         # app.withdraw()
-        app.load_resources()  # Start loading resources, then show the main window
-        app.after(1, app.deiconify)
+        app.load_resources() 
+        app.deiconify()
         app.mainloop()
     except Exception as e:
         print(f"Error {e}")

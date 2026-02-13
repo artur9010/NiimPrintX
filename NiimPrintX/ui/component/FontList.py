@@ -19,10 +19,7 @@ def fonts():
         else:
             magick_path = 'magick'
     else:
-        if platform.system() == "Linux":
-            magick_path = 'convert'
-        else:
-            magick_path = 'magick'
+        magick_path = 'magick'
 
     # magick_path = 'imagemagick/bin/magick'
 

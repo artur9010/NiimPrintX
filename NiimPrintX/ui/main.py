@@ -33,15 +33,6 @@ class LabelPrinterApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self.on_close)
         self.withdraw()
 
-        # self.async_loop = asyncio.new_event_loop()
-        # threading.Thread(target=self.start_asyncio_loop, daemon=True).start()
-        #
-        # self.app_config = AppConfig()
-        # self.create_widgets()
-        # self.create_menu()
-        # self.printer = None
-        # self.load_resources()
-
     def load_resources(self):
         self.async_loop = asyncio.new_event_loop()
         threading.Thread(target=self.start_asyncio_loop, daemon=True).start()
@@ -50,16 +41,14 @@ class LabelPrinterApp(tk.Tk):
         style = ttk.Style(self)
         style.theme_use('clam')
         if self.app_config.os_system == "Darwin":
-            style = ttk.Style(self)
             style.theme_use('aqua')
         elif self.app_config.os_system == "Windows":
-            style = ttk.Style(self)
             style.theme_use('xpnative')
 
         self.create_widgets()
         self.create_menu()
         self.printer = None
-        self.after(5000, self.show_main_window)
+        self.show_main_window
 
     def show_main_window(self):
         self.deiconify()
