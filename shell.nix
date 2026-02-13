@@ -8,6 +8,7 @@ pkgs.mkShell {
       wheel
       pip
       tkinter
+      pyqt6
       
       # Python dependencies available in Nixpkgs
       altgraph
