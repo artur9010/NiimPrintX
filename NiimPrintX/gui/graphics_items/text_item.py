@@ -1,34 +1,20 @@
 from typing import Optional, Dict, Any
-from PyQt6.QtWidgets import QGraphicsObject
-from PyQt6.QtCore import Qt, pyqtSignal, QRectF, QPointF
-from PyQt6.QtGui import QPen, QBrush, QColor, QPixmap, QFont, QFontMetrics, QCursor
+from PyQt6.QtCore import Qt, QRectF, pyqtSignal
+from PyQt6.QtGui import QPixmap, QFont, QFontMetrics
 
 from ..models import AppConfig, TextItem
 from ..utils import ImageRenderer
+from .base_item import BaseGraphicsItem
 
 
-class TextGraphicsItem(QGraphicsObject):
+class TextGraphicsItem(BaseGraphicsItem):
     item_changed = pyqtSignal()
-    HANDLE_SIZE = 10
-    
     def __init__(self, text_item: TextItem, app_config: AppConfig, parent=None):
         super().__init__(parent)
         self.app_config = app_config
         self._text_item = text_item
         self._pixmap: Optional[QPixmap] = None
-        self._bounding_rect = QRectF()
         self._original_pixmap: Optional[QPixmap] = None
-        self._scale = 1.0
-        
-        self.setFlag(QGraphicsObject.GraphicsItemFlag.ItemIsMovable, True)
-        self.setFlag(QGraphicsObject.GraphicsItemFlag.ItemIsSelectable, True)
-        self.setFlag(QGraphicsObject.GraphicsItemFlag.ItemSendsGeometryChanges, True)
-        self.setAcceptHoverEvents(True)
-        
-        self._is_resizing = False
-        self._resize_handle = None
-        self._resize_start_pos = QPointF()
-        self._resize_start_scale = 1.0
         
         self._render_pixmap()
     
@@ -47,100 +33,16 @@ class TextGraphicsItem(QGraphicsObject):
         
         self.update()
     
-    def _get_handle_rect(self, corner: str) -> QRectF:
-        hs = self.HANDLE_SIZE
-        if corner == 'br':
-            return QRectF(
-                self._bounding_rect.right() - hs / 2,
-                self._bounding_rect.bottom() - hs / 2,
-                hs, hs
-            )
-        elif corner == 'bl':
-            return QRectF(
-                self._bounding_rect.left() - hs / 2,
-                self._bounding_rect.bottom() - hs / 2,
-                hs, hs
-            )
-        elif corner == 'tr':
-            return QRectF(
-                self._bounding_rect.right() - hs / 2,
-                self._bounding_rect.top() - hs / 2,
-                hs, hs
-            )
-        elif corner == 'tl':
-            return QRectF(
-                self._bounding_rect.left() - hs / 2,
-                self._bounding_rect.top() - hs / 2,
-                hs, hs
-            )
-        return QRectF()
-    
-    def _get_handle_at_pos(self, pos: QPointF) -> Optional[str]:
-        for corner in ['br', 'bl', 'tr', 'tl']:
-            if self._get_handle_rect(corner).contains(pos):
-                return corner
-        return None
-    
-    def boundingRect(self) -> QRectF:
-        return self._bounding_rect.adjusted(-self.HANDLE_SIZE, -self.HANDLE_SIZE, 
-                                              self.HANDLE_SIZE, self.HANDLE_SIZE)
-    
     def paint(self, painter, option, widget=None):
         if self._pixmap:
             painter.drawPixmap(0, 0, self._pixmap)
         
-        if self.isSelected():
-            pen = QPen(QColor(0, 120, 212), 2)
-            painter.setPen(pen)
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawRect(self._bounding_rect)
-            
-            painter.setBrush(QBrush(QColor(0, 120, 212)))
-            for corner in ['br', 'bl', 'tr', 'tl']:
-                painter.drawRect(self._get_handle_rect(corner))
-    
-    def itemChange(self, change, value):
-        if change == QGraphicsObject.GraphicsItemChange.ItemSelectedChange:
-            self.update()
-        return super().itemChange(change, value)
-    
-    def hoverMoveEvent(self, event):
-        handle = self._get_handle_at_pos(event.pos())
-        if handle in ['br', 'tl']:
-            self.setCursor(QCursor(Qt.CursorShape.SizeFDiagCursor))
-        elif handle in ['bl', 'tr']:
-            self.setCursor(QCursor(Qt.CursorShape.SizeBDiagCursor))
-        else:
-            self.setCursor(QCursor(Qt.CursorShape.ArrowCursor))
-        super().hoverMoveEvent(event)
-    
-    def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and self.isSelected():
-            handle = self._get_handle_at_pos(event.pos())
-            if handle:
-                self._is_resizing = True
-                self._resize_handle = handle
-                self._resize_start_pos = event.pos()
-                self._resize_start_scale = self._scale
-                event.accept()
-                return
-        
-        super().mousePressEvent(event)
+        self._draw_selection_hints(painter)
     
     def mouseMoveEvent(self, event):
         if self._is_resizing and self._original_pixmap:
             delta = event.pos() - self._resize_start_pos
-            
-            if self._resize_handle == 'br':
-                factor = (delta.x() + delta.y()) / 100
-            elif self._resize_handle == 'tl':
-                factor = -(delta.x() + delta.y()) / 100
-            elif self._resize_handle == 'tr':
-                factor = (delta.x() - delta.y()) / 100
-            elif self._resize_handle == 'bl':
-                factor = (-delta.x() + delta.y()) / 100
-            else:
-                factor = 0
+            factor = self._get_resize_factor(delta)
             
             new_scale = max(0.2, self._resize_start_scale + factor)
             
@@ -159,11 +61,6 @@ class TextGraphicsItem(QGraphicsObject):
             event.accept()
         else:
             super().mouseMoveEvent(event)
-    
-    def mouseReleaseEvent(self, event):
-        self._is_resizing = False
-        self._resize_handle = None
-        super().mouseReleaseEvent(event)
     
     def get_text_data(self) -> TextItem:
         self._text_item.x = self.pos().x()

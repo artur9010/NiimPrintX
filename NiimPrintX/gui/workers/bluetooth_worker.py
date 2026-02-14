@@ -52,7 +52,7 @@ class BluetoothWorker(QObject):
                 result = future.result()
                 if on_success:
                     on_success(result)
-            except Exception as e:
+            except (RuntimeError, OSError, IOError, asyncio.TimeoutError) as e:
                 if on_error:
                     on_error(str(e))
         

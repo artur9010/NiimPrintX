@@ -116,7 +116,6 @@ class LabelScene(QGraphicsScene):
                 self.addItem(item)
     
     def _load_old_format(self, data: Dict[str, Any]):
-        import base64
         import io
         from PIL import Image
         
@@ -125,7 +124,7 @@ class LabelScene(QGraphicsScene):
         offset_y = label_rect.top()
         
         if 'text' in data:
-            for text_id, item_data in data['text'].items():
+            for _text_id, item_data in data['text'].items():
                 coords = item_data.get('coords', [0, 0])
                 font_props = item_data.get('font_props', {})
                 
@@ -146,13 +145,13 @@ class LabelScene(QGraphicsScene):
                 self.addItem(item)
         
         if 'image' in data:
-            for image_id, item_data in data['image'].items():
+            for _image_id, item_data in data['image'].items():
                 coords = item_data.get('coords', [0, 0])
                 
                 image_data = item_data.get('original_image')
                 if image_data:
                     img_bytes = base64.b64decode(image_data)
-                    pil_image = Image.open(io.BytesIO(img_bytes))
+                    Image.open(io.BytesIO(img_bytes))
                     
                     image_item = ImageItem(
                         x=coords[0] if coords else 0,

@@ -44,8 +44,9 @@ class PrintWorker(QObject):
                         loop = asyncio.get_event_loop()
                         loop.run_until_complete(self._print_one(printer_client, buffer))
                     else:
-                        raise
-                except Exception as e:
+                        self.error.emit(f"Print error: {str(e)}")
+                        return
+                except (OSError, IOError) as e:
                     self.error.emit(f"Print error: {str(e)}")
                     return
                 
@@ -53,7 +54,7 @@ class PrintWorker(QObject):
             
             self.finished.emit(True)
             
-        except Exception as e:
+        except (RuntimeError, OSError, IOError) as e:
             self.error.emit(f"Print failed: {str(e)}")
     
     async def _print_one(self, printer_client, buffer):

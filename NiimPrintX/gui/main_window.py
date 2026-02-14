@@ -1,3 +1,4 @@
+import pickle
 from typing import Optional
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -142,14 +143,14 @@ class MainWindow(QMainWindow):
                 self.canvas.load_from_file(file_path)
                 self.current_file = file_path
                 self.setWindowTitle(f"NiimPrintX - {file_path}")
-            except Exception as e:
+            except (OSError, IOError, pickle.UnpicklingError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to open file: {e}")
 
     def _save_file(self):
         if self.current_file:
             try:
                 self.canvas.save_to_file(self.current_file)
-            except Exception as e:
+            except (OSError, IOError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to save file: {e}")
         else:
             self._save_file_as()
@@ -168,7 +169,7 @@ class MainWindow(QMainWindow):
                 self.canvas.save_to_file(file_path)
                 self.current_file = file_path
                 self.setWindowTitle(f"NiimPrintX - {file_path}")
-            except Exception as e:
+            except (OSError, IOError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to save file: {e}")
 
     def _export_png(self):
@@ -183,7 +184,7 @@ class MainWindow(QMainWindow):
                 file_path += '.png'
             try:
                 self.canvas.export_to_png(file_path)
-            except Exception as e:
+            except (OSError, IOError) as e:
                 QMessageBox.critical(self, "Error", f"Failed to export: {e}")
 
     def _on_text_added(self, text_item):

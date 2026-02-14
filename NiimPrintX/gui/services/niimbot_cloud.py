@@ -1,3 +1,4 @@
+import asyncio
 import aiohttp
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
@@ -62,11 +63,10 @@ class NiimbotCloudService:
                     if data.get('code') == 1:
                         logger.info(f"Cloud label info for {barcode}: {data.get('data', {}).get('name', 'unknown')}")
                         return CloudLabelInfo.from_api_response(data)
-                    else:
-                        logger.warning(f"Cloud API error for {barcode}: {data.get('message', 'unknown error')}")
+                    logger.warning(f"Cloud API error for {barcode}: {data.get('message', 'unknown error')}")
                 else:
                     logger.warning(f"Cloud API HTTP error: {response.status}")
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as e:
             logger.error(f"Failed to fetch label info from cloud: {e}")
         
         return None
@@ -80,7 +80,7 @@ class NiimbotCloudService:
                 if response.status == 200:
                     data = await response.json()
                     return data
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as e:
             logger.error(f"Failed to fetch RFID info: {e}")
         
         return None

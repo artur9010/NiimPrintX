@@ -10,7 +10,7 @@ _is_dark_theme_cache: Optional[bool] = None
 
 
 def is_dark_theme() -> bool:
-    global _is_dark_theme_cache
+    global _is_dark_theme_cache  # pylint: disable=global-statement
     
     if _is_dark_theme_cache is not None:
         return _is_dark_theme_cache
@@ -31,7 +31,7 @@ def is_dark_theme() -> bool:
 
 
 def reset_theme_cache():
-    global _is_dark_theme_cache
+    global _is_dark_theme_cache  # pylint: disable=global-statement
     _is_dark_theme_cache = None
     logger.info("Theme cache reset")
 
@@ -274,6 +274,6 @@ class TabbedIconGrid(QWidget):
         logger.info(f"TabbedIconGrid: All {len(self._loaded_tabs)} tabs loaded")
     
     def update_theme(self):
-        for tab_name, grid in self._loaded_tabs.items():
+        for _tab_name, grid in self._loaded_tabs.items():
             if grid:
                 grid.update_theme()

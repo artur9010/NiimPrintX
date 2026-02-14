@@ -49,7 +49,7 @@ class ImageRenderer:
                     q_image = QImage()
                     if q_image.loadFromData(QByteArray(img_blob)):
                         return QPixmap.fromImage(q_image)
-        except Exception:
+        except (ImportError, OSError, ValueError):
             pass
         
         return self._render_fallback(text_item)
